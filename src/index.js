@@ -13,7 +13,7 @@ export default {
         const week = url.searchParams.get('week') || '';
         const [cRes, pRes, wRes, mRes, wcRes] = await env.DB.batch([
           env.DB.prepare('SELECT id, name, active, color, sort FROM classes'),
-          env.DB.prepare('SELECT id, name, classId, grade, leader, active, reachedWeek, reachedAt FROM people'),
+          env.DB.prepare('SELECT id, name, classId, grade, leader, active, reachedWeek, reachedAt, snoozeUntil FROM people'),
           env.DB.prepare('SELECT week, submitted, at, roster, present FROM weeks'),
           env.DB.prepare('SELECT personId FROM marks WHERE week = ?').bind(week),
           env.DB.prepare('SELECT classId, at, roster, present FROM week_classes WHERE week = ?').bind(week)
@@ -142,6 +142,12 @@ export default {
           case 'removePerson':
             await env.DB.prepare('UPDATE people SET active = 0 WHERE id = ?')
               .bind(body.id)
+              .run();
+            break;
+
+          case 'snoozePerson':
+            await env.DB.prepare('UPDATE people SET snoozeUntil = ? WHERE id = ?')
+              .bind(body.snoozeUntil || '', body.id)
               .run();
             break;
 
