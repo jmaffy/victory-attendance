@@ -14,7 +14,7 @@ export default {
         const [cRes, pRes, wRes, mRes, wcRes] = await env.DB.batch([
           env.DB.prepare('SELECT id, name, active, color, sort FROM classes'),
           env.DB.prepare('SELECT id, name, classId, grade, leader, active, reachedWeek, reachedAt, snoozeUntil FROM people'),
-          env.DB.prepare('SELECT week, submitted, at, roster, present FROM weeks'),
+          env.DB.prepare('SELECT week, submitted, ignored, at, roster, present FROM weeks'),
           env.DB.prepare('SELECT personId FROM marks WHERE week = ?').bind(week),
           env.DB.prepare('SELECT classId, at, roster, present FROM week_classes WHERE week = ?').bind(week)
         ]);
@@ -26,6 +26,7 @@ export default {
             w.week,
             {
               submitted: !!w.submitted,
+              ignored: !!w.ignored,
               at: w.at,
               roster: JSON.parse(w.roster || '{}'),
               present: JSON.parse(w.present || '[]')
@@ -84,6 +85,12 @@ export default {
               'INSERT OR REPLACE INTO weeks (week, submitted, at, roster, present) VALUES (?, 1, ?, ?, ?)'
             )
               .bind(body.week, body.at, JSON.stringify(body.roster), JSON.stringify(body.present))
+              .run();
+            break;
+
+          case 'ignoreWeek':
+            await env.DB.prepare('UPDATE weeks SET ignored = ? WHERE week = ?')
+              .bind(body.ignored ? 1 : 0, body.week)
               .run();
             break;
 
