@@ -12,7 +12,7 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/state') {
         const week = url.searchParams.get('week') || '';
         const [cRes, pRes, wRes, mRes, wcRes] = await env.DB.batch([
-          env.DB.prepare('SELECT id, name, active, color FROM classes'),
+          env.DB.prepare('SELECT id, name, active, color, sort FROM classes'),
           env.DB.prepare('SELECT id, name, classId, grade, leader, active, reachedWeek, reachedAt FROM people'),
           env.DB.prepare('SELECT week, submitted, at, roster, present FROM weeks'),
           env.DB.prepare('SELECT personId FROM marks WHERE week = ?').bind(week),
@@ -94,8 +94,8 @@ export default {
             break;
 
           case 'addClass':
-            await env.DB.prepare('INSERT INTO classes (id, name, active, color) VALUES (?, ?, 1, ?)')
-              .bind(body.id, body.name, body.color)
+            await env.DB.prepare('INSERT INTO classes (id, name, active, color, sort) VALUES (?, ?, 1, ?, ?)')
+              .bind(body.id, body.name, body.color, body.sort || 0)
               .run();
             break;
 
@@ -107,6 +107,13 @@ export default {
               .run();
             break;
           }
+
+          case 'reorderClasses':
+            if (!Array.isArray(body.order)) return new Response('Invalid order', { status: 400 });
+            await env.DB.batch(
+              body.order.map((id, i) => env.DB.prepare('UPDATE classes SET sort = ? WHERE id = ?').bind(i, id))
+            );
+            break;
 
           case 'removeClass':
             await env.DB.prepare('UPDATE classes SET active = 0 WHERE id = ?')
