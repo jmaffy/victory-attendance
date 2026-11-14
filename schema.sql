@@ -1,0 +1,41 @@
+CREATE TABLE IF NOT EXISTS classes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  color INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS people (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  classId TEXT NOT NULL,
+  grade TEXT DEFAULT '',
+  leader INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  reachedWeek TEXT DEFAULT '',
+  reachedAt INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS weeks (
+  week TEXT PRIMARY KEY,
+  submitted INTEGER NOT NULL DEFAULT 0,
+  at INTEGER DEFAULT 0,
+  roster TEXT NOT NULL DEFAULT '{}',
+  present TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS marks (
+  week TEXT NOT NULL,
+  personId TEXT NOT NULL,
+  t INTEGER NOT NULL,
+  PRIMARY KEY (week, personId)
+);
+
+CREATE TABLE IF NOT EXISTS week_classes (
+  week TEXT NOT NULL,
+  classId TEXT NOT NULL,
+  at INTEGER NOT NULL,
+  roster TEXT NOT NULL DEFAULT '[]',
+  present TEXT NOT NULL DEFAULT '[]',
+  PRIMARY KEY (week, classId)
+);
