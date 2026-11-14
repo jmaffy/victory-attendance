@@ -67,7 +67,7 @@ const cidx=id=>{const i=S.classes.slice().sort(cmpC).findIndex(c=>c.id===id);ret
 const cl=id=>S.classes.find(c=>c.id===id)||{name:'No class',color:0};
 const col=id=>COL[(cl(id).color||0)%COL.length];
 const P=id=>S.people.find(p=>p.id===id)||{name:'(removed)'};
-const sub=()=>Object.keys(S.weeks).filter(k=>S.weeks[k].submitted).sort();
+const sub=()=>Object.keys(S.weeks).filter(k=>S.weeks[k].submitted&&!S.weeks[k].ignored).sort();
 const W=k=>S.weeks[k]||{};
 const ord=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
 const gl=g=>g===''||g==null?'':(+g===0?'Kindergarten':ord(+g)+' Grade');
@@ -187,7 +187,8 @@ async function copyT(){try{await navigator.clipboard.writeText(window._t);docume
 function inRange(){const all=sub();if(S.pre==='all')return all;if(S.pre==='custom')return all.filter(k=>(!S.from||k>=S.from)&&(!S.to||k<=S.to));const c=new Date();c.setDate(c.getDate()-(+S.pre)*7);const cut=c.toISOString().slice(0,10);return all.filter(k=>k>=cut)}
 function filterBar(){const o=[['4','4 weeks'],['8','8 weeks'],['26','6 months'],['all','All'],['custom','Custom']];
  return `<div class="chips">${o.map(([k,l])=>`<button class="${S.pre===k?'on':''}" onclick="S.pre='${k}';render()">${l}</button>`).join('')}</div>`+(S.pre==='custom'?`<div class="f"><input type="date" value="${S.from}" onchange="S.from=this.value;render()"><span class="mu">to</span><input type="date" value="${S.to}" onchange="S.to=this.value;render()"></div>`:'')}
-function vHist(){if(S.det)return vDetail();const ws=inRange();if(!ws.length)return filterBar()+`<div class="card empty">${sub().length?'No submitted weeks in this range.':'No submitted weeks yet. Submit a week and your history will show up here.'}</div>`;
+function vHist(){const h=vHistMain();return S.det?h:h+ignoredCard()}
+function vHistMain(){if(S.det)return vDetail();const ws=inRange();if(!ws.length)return filterBar()+`<div class="card empty">${sub().length?'No submitted weeks in this range.':'No submitted weeks yet. Submit a week and your history will show up here.'}</div>`;
  const last=ws.slice(-26),cnt=k=>{const w=W(k),o={};w.present.forEach(i=>{const c=w.roster[i];o[c]=(o[c]||0)+1});return o};
  const mx=Math.max(1,...last.map(k=>W(k).present.length)),bw=Math.min(64,Math.floor(320/last.length)),x0=(360-bw*last.length)/2,gap=bw>=22?6:2,tf=bw>=22?15:11,sel=null;
  let svg=`<svg viewBox="0 0 360 230" width="100%" role="img" aria-label="Attendance by week and class">`+last.map((k,i)=>{const c=cnt(k),x=x0+i*bw;let y=190;
@@ -203,7 +204,11 @@ function vDetail(){const all=inRange().includes(S.det)?inRange():sub(),sel=S.det
  const w=W(sel),r=w.roster,ids=[...new Set(Object.values(r))];
  h+=`<div class="card" style="--cc:var(--gold)"><h2>Week of ${fmt(sel)}<small>${w.present.length} here · ${Object.keys(r).length-w.present.length} missed</small></h2>`+ids.sort((a,b)=>cl(a).name.localeCompare(cl(b).name)).map(c=>{const m=Object.keys(r).filter(i=>r[i]===c),here=m.filter(i=>w.present.includes(i)),out=m.filter(i=>!w.present.includes(i)),nm=a=>a.map(i=>esc(P(i).name)).sort().join(', ')||'—';
   return `<div style="margin-bottom:10px"><b style="color:${col(c)}">${esc(cl(c).name)}</b> <span class="mu">${here.length}/${m.length}</span><div class="names"><span style="color:var(--ok)">Here:</span> ${nm(here)}</div><div class="names"><span style="color:var(--bad)">Missed:</span> ${nm(out)}</div></div>`}).join('')+'</div>';
- h+=exportCard(sel);return h}
+ h+=exportCard(sel)+ignoreCard(sel);return h}
+function ignoreCard(k){return `<div class="card"><h2>Ignore this week</h2><p class="mu" style="margin-top:0">Hides it from history and totals, and stops it counting anyone as missed. Good for test weeks. You can restore it any time from the bottom of History.</p><button class="btn g" onclick="ignoreWeek('${k}',true)">Ignore week</button></div>`}
+function ignoredCard(){const ig=Object.keys(S.weeks).filter(k=>S.weeks[k].submitted&&S.weeks[k].ignored).sort();if(!ig.length)return'';
+ return `<div class="card"><h2>Ignored weeks<small>not counted anywhere</small></h2>`+ig.map(k=>`<div class="row" style="cursor:default"><div style="flex:1">Week of ${fmt(k)}</div><button class="btn g s" onclick="ignoreWeek('${k}',false)">Restore</button></div>`).join('')+'</div>'}
+function ignoreWeek(k,v){const w=S.weeks[k];if(w)w.ignored=v;if(v)S.det=null;render();api('ignoreWeek',{week:k,ignored:v})}
 
 /* ---------- Roster ---------- */
 function nextB(b){if(!b)return 9e9;const[,m,d]=b.split('-').map(Number),t=new Date();t.setHours(0,0,0,0);const n=new Date(t.getFullYear(),m-1,d);if(n<t)n.setFullYear(t.getFullYear()+1);return n-t}
