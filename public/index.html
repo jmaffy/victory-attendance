@@ -56,7 +56,9 @@ const S={tab:'attend',classes:[],people:[],weeks:{},marks:{},cdocs:{},week:sunda
 let ready=false,gen=0,lastSnap='';
 
 function sunday(d){d=new Date(d);d.setHours(12,0,0,0);d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10)}
-const fmt=k=>new Date(k+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const fmtD=k=>new Date(k+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const wed=k=>{const d=new Date(k+'T12:00:00');d.setDate(d.getDate()+3);return ymd(d)}; // weeks are stored by Sunday; shown as that week's Wednesday
+const fmt=k=>fmtD(wed(k));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid=()=>Math.random().toString(36).slice(2,10);
 const byName=(a,b)=>a.name.localeCompare(b.name);
@@ -141,7 +143,7 @@ function members(c){if(mLock()){const r=W(S.week).roster||{};return Object.keys(
  if(c.id in S.cdocs)return S.cdocs[c.id].roster.map(P);return act().filter(p=>p.classId===c.id)}
 function presentSet(c){return new Set(mLock()?W(S.week).present:c.id in S.cdocs?S.cdocs[c.id].present:Object.keys(S.marks))}
 function vAttend(){
- let h=`<div class="f"><input type="date" value="${S.week}" onchange="setWeek(this.value)"><span class="mu">Week of ${fmt(S.week)}</span></div>`;
+ let h=`<div class="f"><input type="date" value="${wed(S.week)}" onchange="setWeek(this.value)"><span class="mu">Wednesday, ${fmt(S.week)}</span></div>`;
  if(!cls().length||!act().length)return h+`<div class="card empty">Start by adding classes and people in the <b>Manage</b> tab.<br><br><button class="btn" onclick="go('manage')">Go to Manage</button></div>`;
  const M=mLock();
  for(const c of cls()){const ps=members(c).sort(byName);if(!ps.length)continue;const pr=presentSet(c),L=cLock(c.id);
@@ -174,7 +176,7 @@ function vFollow(){const fl=flagged();
   `<div class="sub2"><button class="btn g" onclick="copyT()" id="cp">Copy list</button><a class="btn g" href="sms:?&body=${encodeURIComponent(txt)}">Text</a><a class="btn g" href="mailto:?subject=${encodeURIComponent('Attendance follow-up')}&body=${encodeURIComponent(txt)}">Email</a></div></div>`}
  if(done.length)h+=`<div class="card"><h2>Reached out<small>alert returns after ${MISS_LIMIT} more missed weeks</small></h2>`+done.map(p=>`<div class="row" style="cursor:default"><div style="flex:1">${esc(p.name)}<div class="mu">Reached out ${p.reachedAt?new Date(p.reachedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''}</div></div><button class="btn g s" onclick="unreach('${p.id}')">Undo</button></div>`).join('')+'</div>';
  const snz=act().filter(p=>!p.leader&&snoozed(p)&&st[p.id].n>=MISS_LIMIT);
- if(snz.length)h+=`<div class="card"><h2>Snoozed<small>comes back when the snooze ends</small></h2>`+snz.map(p=>`<div class="row" style="cursor:default"><div style="flex:1">${esc(p.name)}<div class="mu">${esc(cl(p.classId).name)} · until ${fmt(p.snoozeUntil)}</div></div><button class="btn g s" onclick="unsnooze('${p.id}')">Undo</button></div>`).join('')+'</div>';
+ if(snz.length)h+=`<div class="card"><h2>Snoozed<small>comes back when the snooze ends</small></h2>`+snz.map(p=>`<div class="row" style="cursor:default"><div style="flex:1">${esc(p.name)}<div class="mu">${esc(cl(p.classId).name)} · until ${fmtD(p.snoozeUntil)}</div></div><button class="btn g s" onclick="unsnooze('${p.id}')">Undo</button></div>`).join('')+'</div>';
  return h}
 function snooze(id,w){w=+w;if(!w)return;const d=new Date();d.setDate(d.getDate()+w*7);setSnooze(id,ymd(d))}
 function unsnooze(id){setSnooze(id,'')}
@@ -184,7 +186,7 @@ function unreach(id){const p=S.people.find(x=>x.id===id);if(p){p.reachedWeek='';
 async function copyT(){try{await navigator.clipboard.writeText(window._t);document.getElementById('cp').textContent='Copied ✓'}catch(e){const t=document.createElement('textarea');t.value=window._t;t.style.cssText='width:100%;height:120px;margin-top:10px';document.getElementById('cp').parentNode.after(t);t.select()}}
 
 /* ---------- History ---------- */
-function inRange(){const all=sub();if(S.pre==='all')return all;if(S.pre==='custom')return all.filter(k=>(!S.from||k>=S.from)&&(!S.to||k<=S.to));const c=new Date();c.setDate(c.getDate()-(+S.pre)*7);const cut=c.toISOString().slice(0,10);return all.filter(k=>k>=cut)}
+function inRange(){const all=sub();if(S.pre==='all')return all;if(S.pre==='custom')return all.filter(k=>(!S.from||wed(k)>=S.from)&&(!S.to||wed(k)<=S.to));const c=new Date();c.setDate(c.getDate()-(+S.pre)*7);const cut=c.toISOString().slice(0,10);return all.filter(k=>wed(k)>=cut)}
 function filterBar(){const o=[['4','4 weeks'],['8','8 weeks'],['26','6 months'],['all','All'],['custom','Custom']];
  return `<div class="chips">${o.map(([k,l])=>`<button class="${S.pre===k?'on':''}" onclick="S.pre='${k}';render()">${l}</button>`).join('')}</div>`+(S.pre==='custom'?`<div class="f"><input type="date" value="${S.from}" onchange="S.from=this.value;render()"><span class="mu">to</span><input type="date" value="${S.to}" onchange="S.to=this.value;render()"></div>`:'')}
 function vHist(){const h=vHistMain();return S.det?h:h+ignoredCard()}
@@ -202,12 +204,12 @@ function vHistMain(){if(S.det)return vDetail();const ws=inRange();if(!ws.length)
 function vDetail(){const all=inRange().includes(S.det)?inRange():sub(),sel=S.det,i=all.indexOf(sel),pv=all[i-1],nx=all[i+1];
  let h=`<div class="f" style="justify-content:space-between"><button class="btn g s" onclick="S.det=null;render()">‹ Back</button><span><button class="btn g s" ${pv?`onclick="S.det='${pv}';render()"`:'disabled style="opacity:.35"'}>‹ ${pv?fmt(pv):''}</button> <button class="btn g s" ${nx?`onclick="S.det='${nx}';render()"`:'disabled style="opacity:.35"'}>${nx?fmt(nx):''} ›</button></span></div>`;
  const w=W(sel),r=w.roster,ids=[...new Set(Object.values(r))];
- h+=`<div class="card" style="--cc:var(--gold)"><h2>Week of ${fmt(sel)}<small>${w.present.length} here · ${Object.keys(r).length-w.present.length} missed</small></h2>`+ids.sort((a,b)=>cl(a).name.localeCompare(cl(b).name)).map(c=>{const m=Object.keys(r).filter(i=>r[i]===c),here=m.filter(i=>w.present.includes(i)),out=m.filter(i=>!w.present.includes(i)),nm=a=>a.map(i=>esc(P(i).name)).sort().join(', ')||'—';
+ h+=`<div class="card" style="--cc:var(--gold)"><h2>Wednesday, ${fmt(sel)}<small>${w.present.length} here · ${Object.keys(r).length-w.present.length} missed</small></h2>`+ids.sort((a,b)=>cl(a).name.localeCompare(cl(b).name)).map(c=>{const m=Object.keys(r).filter(i=>r[i]===c),here=m.filter(i=>w.present.includes(i)),out=m.filter(i=>!w.present.includes(i)),nm=a=>a.map(i=>esc(P(i).name)).sort().join(', ')||'—';
   return `<div style="margin-bottom:10px"><b style="color:${col(c)}">${esc(cl(c).name)}</b> <span class="mu">${here.length}/${m.length}</span><div class="names"><span style="color:var(--ok)">Here:</span> ${nm(here)}</div><div class="names"><span style="color:var(--bad)">Missed:</span> ${nm(out)}</div></div>`}).join('')+'</div>';
  h+=exportCard(sel)+ignoreCard(sel);return h}
 function ignoreCard(k){return `<div class="card"><h2>Ignore this week</h2><p class="mu" style="margin-top:0">Hides it from history and totals, and stops it counting anyone as missed. Good for test weeks. You can restore it any time from the bottom of History.</p><button class="btn g" onclick="ignoreWeek('${k}',true)">Ignore week</button></div>`}
 function ignoredCard(){const ig=Object.keys(S.weeks).filter(k=>S.weeks[k].submitted&&S.weeks[k].ignored).sort();if(!ig.length)return'';
- return `<div class="card"><h2>Ignored weeks<small>not counted anywhere</small></h2>`+ig.map(k=>`<div class="row" style="cursor:default"><div style="flex:1">Week of ${fmt(k)}</div><button class="btn g s" onclick="ignoreWeek('${k}',false)">Restore</button></div>`).join('')+'</div>'}
+ return `<div class="card"><h2>Ignored weeks<small>not counted anywhere</small></h2>`+ig.map(k=>`<div class="row" style="cursor:default"><div style="flex:1">Wednesday, ${fmt(k)}</div><button class="btn g s" onclick="ignoreWeek('${k}',false)">Restore</button></div>`).join('')+'</div>'}
 function ignoreWeek(k,v){const w=S.weeks[k];if(w)w.ignored=v;if(v)S.det=null;render();api('ignoreWeek',{week:k,ignored:v})}
 
 /* ---------- Roster ---------- */
@@ -231,16 +233,16 @@ function upd(c,id,f,el){const v=el.type==='checkbox'?el.checked:el.value.trim();
 function setCol(id,i){const c=S.classes.find(x=>x.id===id);if(c)c.color=i;render();api('updateClass',{id,field:'color',value:i})}
 function moveC(id,d){const L=cls(),i=L.findIndex(c=>c.id===id),j=i+d;if(i<0||j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];L.forEach((c,n)=>c.sort=n);render();api('reorderClasses',{order:L.map(c=>c.id)})}
 function addC(){const i=document.getElementById('nc'),v=i.value.trim();if(!v)return;const used=cls().map(c=>(c.color||0)%8),free=[0,1,2,3,4,5,6,7].find(x=>!used.includes(x)),id=uid(),color=free==null?cls().length%8:free;const sort=Math.max(-1,...cls().map(c=>c.sort||0))+1;S.classes.push({id,name:v,active:true,color,sort});i.value='';render();api('addClass',{id,name:v,color,sort})}
-const fmtL=k=>new Date(k+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+const fmtL=k=>new Date(wed(k)+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
 function report(k){const w=W(k),r=w.roster,ids=[...new Set(Object.values(r))].sort((a,b)=>cl(a).name.localeCompare(cl(b).name));
  return{present:w.present.length,total:Object.keys(r).length,rows:ids.map(c=>{const m=Object.keys(r).filter(i=>r[i]===c),nm=f=>m.filter(f).map(i=>P(i).name).sort();return{name:cl(c).name,total:m.length,here:nm(i=>w.present.includes(i)),out:nm(i=>!w.present.includes(i))}})}}
-function reportText(k){const R=report(k);return `Victory Baptist Church: Attendance\nWeek of ${fmtL(k)}\nTotal here: ${R.present} of ${R.total}\n`+R.rows.map(c=>`\n${c.name} (${c.here.length}/${c.total})\n  Here: ${c.here.join(', ')||'none'}\n  Missed: ${c.out.join(', ')||'none'}`).join('\n')}
-function exportCard(k){return `<div class="card" style="--cc:var(--gold)"><h2>Export results<small>week of ${fmt(k)}</small></h2><div class="sub2" style="margin-top:0"><button class="btn g" id="cpr" onclick="expCopy('${k}')">Copy report</button><button class="btn g" onclick="expCsv('${k}')">CSV</button><button class="btn g" onclick="expPdf('${k}')">PDF</button></div><div class="mu" id="xn" style="margin-top:8px"></div></div>`}
+function reportText(k){const R=report(k);return `Victory Baptist Church: Attendance\nWednesday, ${fmtL(k)}\nTotal here: ${R.present} of ${R.total}\n`+R.rows.map(c=>`\n${c.name} (${c.here.length}/${c.total})\n  Here: ${c.here.join(', ')||'none'}\n  Missed: ${c.out.join(', ')||'none'}`).join('\n')}
+function exportCard(k){return `<div class="card" style="--cc:var(--gold)"><h2>Export results<small>${fmt(k)}</small></h2><div class="sub2" style="margin-top:0"><button class="btn g" id="cpr" onclick="expCopy('${k}')">Copy report</button><button class="btn g" onclick="expCsv('${k}')">CSV</button><button class="btn g" onclick="expPdf('${k}')">PDF</button></div><div class="mu" id="xn" style="margin-top:8px"></div></div>`}
 function expSave(name,data){const blob=new Blob([data],{type:name.endsWith('.pdf')?'application/pdf':'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
 async function expCopy(k){const t=reportText(k);try{await navigator.clipboard.writeText(t);document.getElementById('cpr').textContent='Copied ✓'}catch(e){const x=document.createElement('textarea');x.value=t;x.style.cssText='width:100%;height:140px;margin-top:10px';document.getElementById('xn').after(x);x.select()}}
-function expCsv(k){const w=W(k),q=v=>'"'+String(v).replace(/"/g,'""')+'"',rows=[['Week','Class','Name','Status','Leader'].map(q).join(',')];
- Object.keys(w.roster).sort((a,b)=>cl(w.roster[a]).name.localeCompare(cl(w.roster[b]).name)||P(a).name.localeCompare(P(b).name)).forEach(id=>rows.push([k,cl(w.roster[id]).name,P(id).name,w.present.includes(id)?'Here':'Missed',P(id).leader?'Yes':''].map(q).join(',')));
- expSave('attendance-'+k+'.csv','\ufeff'+rows.join('\r\n'))}
+function expCsv(k){const w=W(k),q=v=>'"'+String(v).replace(/"/g,'""')+'"',rows=[['Date','Class','Name','Status','Leader'].map(q).join(',')];
+ Object.keys(w.roster).sort((a,b)=>cl(w.roster[a]).name.localeCompare(cl(w.roster[b]).name)||P(a).name.localeCompare(P(b).name)).forEach(id=>rows.push([wed(k),cl(w.roster[id]).name,P(id).name,w.present.includes(id)?'Here':'Missed',P(id).leader?'Yes':''].map(q).join(',')));
+ expSave('attendance-'+wed(k)+'.csv','\ufeff'+rows.join('\r\n'))}
 function wrapT(t,n){const o=[];let l='';for(const w of t.split(' ')){if(l&&(l+' '+w).length>n){o.push(l);l='  '+w}else l=l?l+' '+w:w}o.push(l);return o}
 function mkPdf(L){const e=t=>String(t).replace(/[^\x00-\xff]/g,'?').replace(/[\\()]/g,'\\$&'),pages=[];let cur=[];
  L.forEach(([t,b,ind])=>wrapT(t,b?60:ind?84:88).forEach(x=>{if(cur.length>=46){pages.push(cur);cur=[]}cur.push([ind?'  '+x:x,b])}));pages.push(cur);
@@ -251,9 +253,9 @@ function mkPdf(L){const e=t=>String(t).replace(/[^\x00-\xff]/g,'?').replace(/[\\
  let out='%PDF-1.4\n';const off=[];for(let i=1;i<o.length;i++){off[i]=out.length;out+=`${i} 0 obj\n${o[i]}\nendobj\n`}
  const x=out.length;out+=`xref\n0 ${o.length}\n0000000000 65535 f \n`+off.slice(1).map(v=>String(v).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size ${o.length} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
  return Uint8Array.from(out,c=>c.charCodeAt(0)&255)}
-function expPdf(k){const R=report(k),L=[['Victory Baptist Church: Attendance',1],['Week of '+fmtL(k)],['Total here: '+R.present+' of '+R.total],['']];
+function expPdf(k){const R=report(k),L=[['Victory Baptist Church: Attendance',1],['Wednesday, '+fmtL(k)],['Total here: '+R.present+' of '+R.total],['']];
  R.rows.forEach(c=>{L.push([c.name+' ('+c.here.length+'/'+c.total+')',1],['Here: '+(c.here.join(', ')||'none'),0,1],['Missed: '+(c.out.join(', ')||'none'),0,1],['']);});
- expSave('attendance-'+k+'.pdf',mkPdf(L))}
+ expSave('attendance-'+wed(k)+'.pdf',mkPdf(L))}
 function edC(c){const n=act().filter(p=>p.classId===c.id).length;return `<div style="border:1px solid var(--gd);border-radius:14px;padding:12px;margin-top:10px"><div class="f"><input value="${esc(c.name)}" onchange="upd('classes','${c.id}','name',this)"></div><div class="f">${COL.map((x,i)=>`<button class="sw ${(c.color||0)%8===i?'on':''}" style="background:${x}" onclick="setCol('${c.id}',${i})"></button>`).join('')}</div>${n?'<div class="mu" style="margin-bottom:8px">Move or remove its people before removing this class.</div>':''}<div class="f" style="margin:0"><span style="flex:1"></span><button class="btn g s" ${n?'disabled style="opacity:.35"':''} onclick="rmC('${c.id}')">Remove</button><button class="btn s" onclick="S.edc=null;render()">Done</button></div></div>`}
 function rmC(id){S.edc=null;const c=S.classes.find(x=>x.id===id);if(c)c.active=false;render();api('removeClass',{id})}
 function edRow(p){return `<div style="border:1px solid var(--gd);border-radius:14px;padding:12px;margin-top:10px"><div class="f"><input value="${esc(p.name)}" onchange="upd('people','${p.id}','name',this)"></div><div class="f"><select onchange="upd('people','${p.id}','classId',this)">${cOpts(p.classId)}</select><select onchange="upd('people','${p.id}','grade',this)">${gOpts(p.grade)}</select></div><div class="f" style="margin:0"><label class="mu"><input type="checkbox" ${p.leader?'checked':''} onchange="upd('people','${p.id}','leader',this)"> Leader</label><span style="flex:1"></span><button class="btn g s" onclick="rmP('${p.id}')">Remove</button><button class="btn s" onclick="S.ed=null;render()">Done</button></div></div>`}
